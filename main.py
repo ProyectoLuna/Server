@@ -48,7 +48,6 @@ class LunaHTTPServer_RequestHandler(BaseHTTPRequestHandler):
         self.end_headers()
 
         if self.path == "/check_gateway":
-            self.wfile.write(bytes("OK", "UTF-8"))
 
             with sqlite3.connect(db) as conn:
                 conn.row_factory = dict_factory
@@ -57,15 +56,25 @@ class LunaHTTPServer_RequestHandler(BaseHTTPRequestHandler):
                 query = cursor.fetchall()
 
             data = bytes(json.dumps(query), "UTF-8")
-            logger.info(data)
-
             self.wfile.write(data)
+            logger.debug(data)
+            return
+
+        elif self.path == "/check_subscriptors":
+            with sqlite3.connect(db) as conn:
+                conn.row_factory = dict_factory
+                cursor = conn.cursor()
+                cursor.execute("SELECT * FROM subscriptors")
+                query = cursor.fetchall()
+
+            data = bytes(json.dumps(query), "UTF-8")
+            self.wfile.write(data)
+            logger.debug(data)
             return
 
         return
 
     # POST
-
     def do_POST(self):
 
         self.send_response(200)
