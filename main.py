@@ -26,8 +26,8 @@ def dict_factory(cursor, row):
 # HTTPRequestHandler class
 class LunaHTTPServer_RequestHandler(BaseHTTPRequestHandler):
 
-    def log_message(self, format, *args):
-        logger.info("From {0} - {1}".format(self.client_address[0], format % args))
+    def log_message(self, formatting, *args):
+        logger.info("From {0} - {1}".format(self.client_address[0], formatting % args))
 
     # OPTIONS
     def do_OPTIONS(self):
