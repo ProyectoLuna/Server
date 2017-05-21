@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-
+import ssl
 import time
 import sqlite3
 import json
@@ -105,6 +105,7 @@ def main():
     # Server settings
     server_address = ('0.0.0.0', 8080)
     httpd = HTTPServer(server_address, LunaHTTPServer_RequestHandler)
+    httpd.socket = ssl.wrap_socket(httpd.socket, certfile='./server.pem', server_side=True)
 
     try:
         logger.info('Server starting listening on {0[0]}:{0[1]}'.format(server_address))
