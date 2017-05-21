@@ -26,8 +26,12 @@ def dict_factory(cursor, row):
 # HTTPRequestHandler class
 class LunaHTTPServer_RequestHandler(BaseHTTPRequestHandler):
 
+    def log_message(self, format, *args):
+        logger.info("From {0} - {1}".format(self.client_address[0], format % args))
+
     # OPTIONS
     def do_OPTIONS(self):
+
         self.send_response(200, "ok")
         self.send_header('Access-Control-Allow-Credentials', 'true')
         self.send_header('Access-Control-Allow-Origin', '*')
@@ -36,7 +40,6 @@ class LunaHTTPServer_RequestHandler(BaseHTTPRequestHandler):
         self.end_headers()
 
     # GET
-
     def do_GET(self):
 
         self.send_response(200)
@@ -44,7 +47,7 @@ class LunaHTTPServer_RequestHandler(BaseHTTPRequestHandler):
         self.send_header('Content-type', 'application/json')
         self.end_headers()
 
-        if self.path == "/check_gateway/":
+        if self.path == "/check_gateway":
             self.wfile.write(bytes("OK", "UTF-8"))
 
             with sqlite3.connect(db) as conn:
@@ -54,6 +57,7 @@ class LunaHTTPServer_RequestHandler(BaseHTTPRequestHandler):
                 query = cursor.fetchall()
 
             data = bytes(json.dumps(query), "UTF-8")
+            logger.info(data)
 
             self.wfile.write(data)
             return
@@ -90,11 +94,11 @@ class LunaHTTPServer_RequestHandler(BaseHTTPRequestHandler):
 def main():
 
     # Server settings
-    server_address = ('0.0.0.0', 8081)
+    server_address = ('0.0.0.0', 8080)
     httpd = HTTPServer(server_address, LunaHTTPServer_RequestHandler)
 
     try:
-        logger.info('Server starting listening on ({0})'.format(server_address))
+        logger.info('Server starting listening on {0[0]}:{0[1]}'.format(server_address))
         httpd.serve_forever()
     except KeyboardInterrupt as e:
         httpd.server_close()
