@@ -27,7 +27,7 @@ def dict_factory(cursor, row):
 class LunaHTTPServer_RequestHandler(BaseHTTPRequestHandler):
 
     def log_message(self, formatting, *args):
-        logger.info("From {0} - {1}".format(self.client_address[0], formatting % args))
+        logger.info("From {0[0]} - {1}".format(self.client_address, formatting % args))
 
     # OPTIONS
     def do_OPTIONS(self):
@@ -82,9 +82,28 @@ class LunaHTTPServer_RequestHandler(BaseHTTPRequestHandler):
         self.send_header('Content-type', 'application/json')
         self.end_headers()
 
-        # Client
+        if self.path == "/auth":
+            var_len = int(self.headers['Content-Length'])
+            json_data = self.rfile.read(var_len)
+            rdata = json.loads(json_data.decode("UTF-8"))
 
-        if self.path == "/subscriptor_create/":
+            with sqlite3.connect(db) as conn:
+                conn.row_factory = dict_factory
+                cursor = conn.cursor()
+                cursor.execute("SELECT * FROM users WHERE username = ?", (rdata['user'],))
+                query = cursor.fetchone()
+
+            message = {'auth': False}
+            if query:
+                if rdata['pass'] == query['password']:
+                    message = {'auth': True}
+
+            wdata = bytes(json.dumps(message), "UTF-8")
+            self.wfile.write(wdata)
+
+            return
+
+        elif self.path == "/subscriptor_create":
             """
             var_len = int(self.headers['Content-Length'])
             json_data = self.rfile.read(var_len)
@@ -108,11 +127,11 @@ def main():
     httpd.socket = ssl.wrap_socket(httpd.socket, certfile='./server.pem', server_side=True)
 
     try:
-        logger.info('Server starting listening on {0[0]}:{0[1]}'.format(server_address))
+        logger.info('Server start listening on {0[0]}:{0[1]}'.format(server_address))
         httpd.serve_forever()
     except KeyboardInterrupt as e:
-        httpd.server_close()
         logger.info('Server stops')
+        httpd.server_close()
 
 
 if __name__ == "__main__":
