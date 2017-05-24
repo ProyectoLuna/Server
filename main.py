@@ -25,56 +25,35 @@ def dict_factory(cursor, row):
 class ClientHandler(resource.Resource):
     isLeaf = True
 
-    def render_GET(self, request):
-        logger.debug(request)
-        if request.uri == b"/check_gateway":
+    def render(self, request):
+        logger.debug("From {0} Got {1} Request"
+                     .format(request.getClientIP(),
+                             request.method.decode("UTF-8")))
 
-            with sqlite3.connect(db) as conn:
-                conn.row_factory = dict_factory
-                cursor = conn.cursor()
-                cursor.execute("SELECT * FROM gateway")
-                query = cursor.fetchall()
+        if request.method == b"GET":
+            if request.uri == b"/check_gateway":
 
-            request.setHeader(b"content-type", b"application/json")
-            data = bytes(json.dumps(query), "UTF-8")
-            return data
+                with sqlite3.connect(db) as conn:
+                    conn.row_factory = dict_factory
+                    cursor = conn.cursor()
+                    cursor.execute("SELECT * FROM gateway")
+                    query = cursor.fetchall()
 
-        elif request.uri == b"/check_subscriptors":
-            with sqlite3.connect(db) as conn:
-                conn.row_factory = dict_factory
-                cursor = conn.cursor()
-                cursor.execute("SELECT * FROM subscriptors")
-                query = cursor.fetchall()
+                request.setHeader(b"content-type", b"application/json")
+                data = bytes(json.dumps(query), "UTF-8")
+                return data
 
-            data = bytes(json.dumps(query), "UTF-8")
-            return data
+            elif request.uri == b"/check_subscriptors":
+                with sqlite3.connect(db) as conn:
+                    conn.row_factory = dict_factory
+                    cursor = conn.cursor()
+                    cursor.execute("SELECT * FROM subscriptors")
+                    query = cursor.fetchall()
 
-    def render_POST(self, request):
-        logger.debug(request)
-        if request.uri == b"/auth":
-
-            json_data = request.content.read()
-            rdata = json.loads(json_data.decode("UTF-8"))
-
-            with sqlite3.connect(db) as conn:
-                conn.row_factory = dict_factory
-                cursor = conn.cursor()
-                cursor.execute("SELECT * FROM users WHERE username = ?", (rdata['user'],))
-                query = cursor.fetchone()
-
-            message = {'auth': False}
-            if query:
-                if rdata['pass'] == query['password']:
-                    message = {'auth': True}
-
-            wdata = bytes(json.dumps(message), "UTF-8")
-            request.setHeader(b"content-type", b"application/json")
-
-            return wdata
-
-        elif self.path == "/subscriptor_create":
-            logger.debug(request)
-            """
+                data = bytes(json.dumps(query), "UTF-8")
+                return data
+        elif request.method == b"POST":
+            logger.debug(request.content.read())
             if request.uri == b"/auth":
 
                 json_data = request.content.read()
@@ -87,21 +66,19 @@ class ClientHandler(resource.Resource):
                     query = cursor.fetchone()
 
                 message = {'auth': False}
+
                 if query:
                     if rdata['pass'] == query['password']:
                         message = {'auth': True}
 
                 wdata = bytes(json.dumps(message), "UTF-8")
                 request.setHeader(b"content-type", b"application/json")
-
                 return wdata
-            """
 
         return b"NONONONONO"
 
 
 def main():
-
     server_port = 8080
 
     ssl_context = ssl.DefaultOpenSSLContextFactory(
