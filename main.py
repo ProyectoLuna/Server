@@ -1,13 +1,12 @@
-#!/usr/bin/env python3
-
 import ssl
-import time
 import sqlite3
 import json
 import logging
 
-from http.server import BaseHTTPRequestHandler, HTTPServer
 from customlog.customlog import ColoredLogger
+
+from twisted.web import server, resource
+from twisted.internet import reactor, endpoints, ssl
 
 logging.setLoggerClass(ColoredLogger)
 logger = logging.getLogger('SERVER - MAIN')
@@ -23,31 +22,12 @@ def dict_factory(cursor, row):
     return d
 
 
-# HTTPRequestHandler class
-class LunaHTTPServer_RequestHandler(BaseHTTPRequestHandler):
+class ClientHandler(resource.Resource):
+    isLeaf = True
 
-    def log_message(self, formatting, *args):
-        logger.info("From {0[0]} - {1}".format(self.client_address, formatting % args))
-
-    # OPTIONS
-    def do_OPTIONS(self):
-
-        self.send_response(200, "ok")
-        self.send_header('Access-Control-Allow-Credentials', 'true')
-        self.send_header('Access-Control-Allow-Origin', '*')
-        self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
-        self.send_header("Access-Control-Allow-Headers", "X-Requested-With, Content-type")
-        self.end_headers()
-
-    # GET
-    def do_GET(self):
-
-        self.send_response(200)
-        self.send_header('Access-Control-Allow-Origin', '*')
-        self.send_header('Content-type', 'application/json')
-        self.end_headers()
-
-        if self.path == "/check_gateway":
+    def render_GET(self, request):
+        logger.debug(request)
+        if request.uri == b"/check_gateway":
 
             with sqlite3.connect(db) as conn:
                 conn.row_factory = dict_factory
@@ -55,12 +35,11 @@ class LunaHTTPServer_RequestHandler(BaseHTTPRequestHandler):
                 cursor.execute("SELECT * FROM gateway")
                 query = cursor.fetchall()
 
+            request.setHeader(b"content-type", b"application/json")
             data = bytes(json.dumps(query), "UTF-8")
-            self.wfile.write(data)
-            logger.debug(data)
-            return
+            return data
 
-        elif self.path == "/check_subscriptors":
+        elif request.uri == b"/check_subscriptors":
             with sqlite3.connect(db) as conn:
                 conn.row_factory = dict_factory
                 cursor = conn.cursor()
@@ -68,23 +47,13 @@ class LunaHTTPServer_RequestHandler(BaseHTTPRequestHandler):
                 query = cursor.fetchall()
 
             data = bytes(json.dumps(query), "UTF-8")
-            self.wfile.write(data)
-            logger.debug(data)
-            return
+            return data
 
-        return
+    def render_POST(self, request):
+        logger.debug(request)
+        if request.uri == b"/auth":
 
-    # POST
-    def do_POST(self):
-
-        self.send_response(200)
-        self.send_header('Access-Control-Allow-Origin', '*')
-        self.send_header('Content-type', 'application/json')
-        self.end_headers()
-
-        if self.path == "/auth":
-            var_len = int(self.headers['Content-Length'])
-            json_data = self.rfile.read(var_len)
+            json_data = request.content.read()
             rdata = json.loads(json_data.decode("UTF-8"))
 
             with sqlite3.connect(db) as conn:
@@ -99,40 +68,54 @@ class LunaHTTPServer_RequestHandler(BaseHTTPRequestHandler):
                     message = {'auth': True}
 
             wdata = bytes(json.dumps(message), "UTF-8")
-            self.wfile.write(wdata)
+            request.setHeader(b"content-type", b"application/json")
 
-            return
+            return wdata
 
         elif self.path == "/subscriptor_create":
+            logger.debug(request)
             """
-            var_len = int(self.headers['Content-Length'])
-            json_data = self.rfile.read(var_len)
-            data = json.loads(json_data.decode("UTF-8"))
+            if request.uri == b"/auth":
 
-            with sqlite3.connect(db) as conn:
-                cursor = conn.cursor()
-                cursor.execute("INSERT INTO clients VALUES (NULL, ?, ?, ?, ?, ?)",
-                               (data["name"], data["surname"], data["tlf"], data["email"], data["nif"],))
-                conn.commit()
+                json_data = request.content.read()
+                rdata = json.loads(json_data.decode("UTF-8"))
+
+                with sqlite3.connect(db) as conn:
+                    conn.row_factory = dict_factory
+                    cursor = conn.cursor()
+                    cursor.execute("SELECT * FROM users WHERE username = ?", (rdata['user'],))
+                    query = cursor.fetchone()
+
+                message = {'auth': False}
+                if query:
+                    if rdata['pass'] == query['password']:
+                        message = {'auth': True}
+
+                wdata = bytes(json.dumps(message), "UTF-8")
+                request.setHeader(b"content-type", b"application/json")
+
+                return wdata
             """
-            return
-        return
+
+        return b"NONONONONO"
 
 
 def main():
 
-    # Server settings
-    server_address = ('0.0.0.0', 8080)
-    httpd = HTTPServer(server_address, LunaHTTPServer_RequestHandler)
-    httpd.socket = ssl.wrap_socket(httpd.socket, certfile='./server.pem', server_side=True)
+    server_port = 8080
 
-    try:
-        logger.info('Server start listening on {0[0]}:{0[1]}'.format(server_address))
-        httpd.serve_forever()
-    except KeyboardInterrupt as e:
-        logger.info('Server stops')
-        httpd.server_close()
+    ssl_context = ssl.DefaultOpenSSLContextFactory(
+        'privkey.pem',
+        'cacert.pem',
+    )
+
+    site = server.Site(ClientHandler())
+    endpoint = endpoints.SSL4ServerEndpoint(reactor, server_port, ssl_context)
+    endpoint.listen(site)
+
+    logger.info('Server start listening on {0}'.format(server_port))
+    reactor.run()
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()

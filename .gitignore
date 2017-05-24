@@ -62,3 +62,7 @@ target/
 *.swp
 
 server\.pem
+
+privkey\.pem
+
+cacert\.pem
