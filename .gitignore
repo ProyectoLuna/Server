@@ -66,3 +66,5 @@ server\.pem
 privkey\.pem
 
 cacert\.pem
+
+db\.sqlite
