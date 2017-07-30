@@ -68,3 +68,7 @@ privkey\.pem
 cacert\.pem
 
 db\.sqlite
+
+*.pem
+
+*.key
