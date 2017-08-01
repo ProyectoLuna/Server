@@ -9,7 +9,7 @@ def timestr():
     return time.strftime("%Y%m%d%H%M%SZ", time.gmtime()).encode("UTF-8")
 
 
-def create_self_signed_cert(cacert, privkey):
+def create_self_signed_cert(filename):
     # creates a serlf-signed certificate
     # to verify run openssl x509 -in server.key -text -noout
     print("Generating self-signed certificate...")
@@ -24,7 +24,7 @@ def create_self_signed_cert(cacert, privkey):
     cert.get_subject().ST = "project-luna self-signed certificate"
     cert.get_subject().L = "-"
     cert.get_subject().O = "-"
-    cert.get_subject().OU = "jauria studios"
+    cert.get_subject().OU = "luna studios"
     cert.get_subject().CN = "-"
     cert.set_serial_number(1000)
     when = timestr()
@@ -35,10 +35,8 @@ def create_self_signed_cert(cacert, privkey):
     cert.set_pubkey(k)
     cert.sign(k, 'sha1')
 
-    with open(cacert, 'wt') as certfile:
-        certfile.write(crypto.dump_certificate(crypto.FILETYPE_PEM, cert).decode("UTF-8"))
-
-    with open(privkey, 'wt') as certfile:
+    with open(filename, 'wt') as certfile:
         certfile.write(crypto.dump_privatekey(crypto.FILETYPE_PEM, k).decode("UTF-8"))
+        certfile.write(crypto.dump_certificate(crypto.FILETYPE_PEM, cert).decode("UTF-8"))
 
 # create_self_signed_cert("server.key")
